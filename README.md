@@ -128,7 +128,7 @@ Released under the [MIT License](LICENSE).
 
 ## Author
 
-**CA Sweta Mohanty**
+**CA Sweta Mohanty**,
 Risk Management Professional | Internal Audit | SOX | GRC
-[LinkedIn](https://www.linkedin.com/in/caswetamohanty). 📧 [csawetamohanty@gmail.com](mailto:csawetamohanty@gmail.com)
+[LinkedIn](https://www.linkedin.com/in/caswetamohanty). 📧 (mailto:csawetamohanty@gmail.com)
 
