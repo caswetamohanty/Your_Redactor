@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Redactor – Offline Redaction Tool</title>
+<style>
+/* ---------- Design tokens: navy / white / red ---------- */
+:root{--navy:#0b1f3a;--navy2:#16315c;--red:#e11d48;--red2:#be123c;--bg:#eef1f6;--line:#d9e0ec;--tx:#14213d;--mute:#64748b}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
+button,input,select{font:inherit}
+
+/* ---------- Header + toolbar ---------- */
+header{height:58px;flex-shrink:0;background:var(--navy);color:#fff;display:flex;align-items:center;gap:8px;padding:0 16px}
+.logo{font-size:18px;font-weight:700;margin-right:auto;letter-spacing:.2px}
+.logo i{font-style:normal;color:var(--red)}
+.lock{font-size:12px;color:#cbd5e1;margin-right:auto}
+.logo{margin-right:14px!important}
+.cnt{margin-left:auto;font-size:11px;color:var(--mute)}
+.cnt.hit{color:var(--red2);font-weight:700}
+.warn{margin-top:8px;padding:7px 9px;border-radius:6px;background:#fff1f4;color:var(--red2);font-size:12px;font-weight:600}
+.btn{border:1px solid #ffffff40;background:transparent;color:#fff;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:600}
+.btn:hover{background:#ffffff1a}
+.btn.red{background:var(--red);border-color:var(--red)}
+.btn.red:hover{background:var(--red2)}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+/* ---------- Three-panel layout ---------- */
+main{flex:1;min-height:0;display:grid;grid-template-columns:290px 1fr 390px}
+.panel{background:#fff;overflow:auto;padding:14px}
+.panel.left{border-right:1px solid var(--line)}
+.panel.right{border-left:1px solid var(--line)}
+h2{font-size:13px;margin:16px 0 8px;color:var(--navy);font-weight:700}
+h2:first-child{margin-top:0}
+#drop{border:2px dashed #aab6cc;border-radius:10px;padding:18px 10px;text-align:center;color:var(--mute);cursor:pointer}
+#drop.over{border-color:var(--red);background:#fff1f4;color:var(--red)}
+#drop b{display:block;color:var(--navy)}
+#fileinfo{margin-top:8px;font-size:12px;color:var(--mute);word-break:break-all}
+.presets label{display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer}
+.presets .all{border-bottom:1px solid var(--line);margin-bottom:4px;padding-bottom:6px;font-weight:600}
+input[type=text]{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px}
+select{padding:6px;border:1px solid var(--line);border-radius:6px;width:100%}
+.row{display:flex;gap:6px;margin-top:6px}
+.sbtn{background:var(--navy);color:#fff;border:0;border-radius:6px;padding:7px 12px;cursor:pointer;font-weight:600}
+.sbtn:hover{background:var(--navy2)}
+.hint{font-size:12px;color:var(--mute);margin-top:6px}
+
+h2.caps{text-transform:uppercase;letter-spacing:.4px;font-size:12px}
+.pbtns{display:flex;gap:6px;margin-bottom:8px}
+.pbtns button{background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:600;color:var(--navy)}
+.pbtns button:hover{border-color:var(--navy)}
+.ghead{font-size:12px;font-weight:700;color:var(--navy);margin:12px 0 2px}
+/* ---------- Preview ---------- */
+#preview{background:#dfe5ef;overflow:auto;padding:18px;position:relative}
+#empty{margin:18vh auto 0;max-width:340px;text-align:center;color:var(--mute)}
+.page{position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 2px 12px #0b1f3a33}
+.page canvas{display:block;width:100%;height:100%}
+.ov{position:absolute;inset:0;cursor:crosshair;touch-action:none}
+.box{position:absolute;pointer-events:none}
+.box.pending{background:#e11d4838;border:2px solid var(--red)}
+.box.applied{background:#000}
+.ghost{position:absolute;border:2px dashed var(--red);background:#e11d4824;pointer-events:none}
+#txt{background:#fff;margin:0 auto;max-width:860px;padding:22px;white-space:pre-wrap;word-break:break-word;font:13px/1.6 Consolas,monospace;box-shadow:0 2px 12px #0b1f3a33}
+#txt mark{background:#e11d4838;outline:1px solid var(--red);color:inherit}
+#txt .done{background:#000;color:#000}
+
+/* ---------- Detected items table ---------- */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;background:var(--navy);color:#fff;padding:6px 8px;position:sticky;top:-14px}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-all}
+tr.item{cursor:pointer}
+tr.item:hover{background:#f4f7fc}
+.tag{white-space:nowrap;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700}
+.tag.Pending{background:#fde7ec;color:var(--red2)}
+.tag.Applied{background:#e2e8f0;color:var(--navy)}
+.x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:15px}
+.x:hover{color:var(--red)}
+
+/* ---------- Status bar ---------- */
+footer{height:30px;flex-shrink:0;background:var(--navy);color:#cbd5e1;padding:5px 16px;font-size:12.5px}
+
+@media(max-width:1200px){.lock{display:none}.logo{margin-right:auto!important}}
+@media(max-width:1000px){body{height:auto}main{grid-template-columns:1fr}#preview{min-height:60vh}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Your <i>Redactor</i></div>
+  <span class="lock">🔒 Files are processed locally. Nothing is uploaded.</span>
+  <button class="btn" id="bDetect">Detect Personal Identifier</button>
+  <button class="btn red" id="bApply">✓ Apply</button>
+  <button class="btn" id="bUndo">Undo</button>
+  <button class="btn" id="bClear">Clear</button>
+  <button class="btn red" id="bExport">Export</button>
+  <input type="file" id="file" hidden accept=".pdf,.jpg,.jpeg,.png,.txt,.csv,.log,.json,.md,.doc,.docx,.xls,.xlsx">
+</header>
+
+<main>
+  <!-- LEFT: options -->
+  <div class="panel left">
+    <h2>Document</h2>
+    <div id="drop" tabindex="0"><b>Drop a file here</b>or click to browse<br>PDF, JPG, PNG, TXT, DOCX, XLS/XLSX</div>
+    <div id="fileinfo">No file loaded.</div>
+
+    <h2 class="caps">Data types to find</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2>Text search</h2>
+    <input type="text" id="q" placeholder="Word or phrase to redact">
+    <label class="presets"><span style="display:flex;gap:8px;margin-top:6px"><input type="checkbox" id="cs"> Match case</span></label>
+    <div class="row"><button class="sbtn" id="bFind">Find &amp; mark</button></div>
+
+    <h2>Manual redaction</h2>
+    <div class="hint">PDF/images: drag a box on the page. Text files: select text with the mouse.</div>
+
+    <h2>View &amp; export</h2>
+    <label>Zoom <input type="range" id="zoom" min="40" max="200" value="100" style="width:100%"></label>
+    <select id="fmt" style="margin-top:8px"><option value="pdf">Export as PDF</option><option value="png">Export as PNG</option></select>
+    <div class="hint">Everything runs in your browser. Files are never uploaded. Exported PDFs are flattened to images, so redacted content cannot be recovered.</div>
+    <div class="warn">Automated detection may miss some personal data. Review every page before sharing.</div>
+  </div>
+
+  <!-- CENTER: preview -->
+  <div id="preview"><div id="empty"><b>Drop a document here or in the Document box on the left</b><br>Then detect sensitive data or draw redaction boxes.</div></div>
+
+  <!-- RIGHT: redaction list -->
+  <div class="panel right">
+    <h2>Detected items (<span id="count">0</span>)</h2>
+    <table>
+      <thead><tr><th>Type</th><th>Value</th><th>Page / Location</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+<footer id="msg">Ready.</footer>
+
+<script>
+/* =====================================================================
+   Your Redactor – single-file, offline redaction tool
+   Libraries (PDF.js, jsPDF, mammoth, SheetJS) load on demand from ./lib/
+   first (fully offline), falling back to the cdnjs CDN if not present.
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const SCALE = 1.5;                       // PDF render scale
+const S = { name:'', kind:null, pages:[], reds:[], hist:[], id:1 };   // app state
+
+/* ---------- Preset patterns (all global regexes) ---------- */
+const luhn = v => { const d=v.replace(/\D/g,''); if(d.length<13||d.length>19) return false;
+  let s=0,alt=false; for(let i=d.length-1;i>=0;i--){let n=+d[i]; if(alt){n*=2; if(n>9)n-=9} s+=n; alt=!alt} return s>0&&s%10===0; };   // s>0: "0000…" is not a card
+/* Aadhaar check digit (Verhoeff), as in the reference prompt: every real Aadhaar passes it */
+const VD=[[0,1,2,3,4,5,6,7,8,9],[1,2,3,4,0,6,7,8,9,5],[2,3,4,0,1,7,8,9,5,6],[3,4,0,1,2,8,9,5,6,7],[4,0,1,2,3,9,5,6,7,8],[5,9,8,7,6,0,4,3,2,1],[6,5,9,8,7,1,0,4,3,2],[7,6,5,9,8,2,1,0,4,3],[8,7,6,5,9,3,2,1,0,4],[9,8,7,6,5,4,3,2,1,0]];
+const VP=[[0,1,2,3,4,5,6,7,8,9],[1,5,7,6,2,8,3,0,9,4],[5,8,0,3,7,9,6,1,4,2],[8,9,1,6,0,4,3,5,2,7],[9,4,5,3,1,2,6,8,7,0],[4,2,8,6,5,7,3,9,0,1],[2,7,9,3,8,0,6,4,1,5],[7,0,4,6,9,1,3,2,5,8]];
+const verhoeff=v=>v.replace(/\D/g,'').split('').reverse().reduce((c,ch,i)=>VD[c][VP[i%8][+ch]],0)===0;
+/* PAN 4th letter = holder type (P person, C company, H HUF, F firm …): extra proof for a PAN written with spaces */
+const PAN_HOLDER=/^[A-Z]{3}[PCHFATBLJG][A-Z]\d{4}[A-Z]$/;
+/* Words that start the next field on the same line: a name never runs into them */
+const NAME_LABELS='(?:Status|PAN|Address|Date|Gender|Mobile|E-?Mail|Father|Mother|Husband|Spouse|Name|Ward|Form|Assessment|Aadhaar|Nature|Residential|Resident|Individual|Phone|Contact|Signature|Flat|Door|Plot)';
+/* Order here = detection priority (earlier patterns win overlaps). Label-based patterns
+   (Name, Address, Bank A/c, PIN, Trade Name) are heuristics: review before applying. */
+const PRESETS = [
+  {k:'GSTIN',    re:/\b(?:0[1-9]|[1-3]\d)[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/g},   /* starts with a real state code 01–39 */
+  {k:'PAN',      fn:()=>findPAN()},          /* also "ABCPE 1234F" written with spaces (needs a PAN label or a valid holder letter) */
+  {k:'TAN',      re:/\b[A-Z]{4}\d{5}[A-Z]\b/g},
+  {k:'Email',    re:/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g},
+  {k:'UPI',      re:/\b[\w.\-]{2,}@(?:ok\w+|ybl|ibl|axl|paytm|upi|apl|sbi|hdfcbank|icici|axisbank|kotak)\b/gi},
+  {k:'VID',      re:/\bVID[\s:#-]*\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\b|(?<!\d)\d{4}[ ]?\d{4}[ ]?\d{4}[ ]?\d{4}(?!\d)/gi, valid:v=>/vid/i.test(v)||!luhn(v)},   /* 16 digits that are not a card number */
+  {k:'Voter ID', re:/\b[A-Z]{3}\d{7}\b/g},
+  {k:'Card',     re:/(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)/g, valid:luhn},
+  {k:'Aadhaar',  fn:()=>findAadhaar()},      /* Verhoeff-checked (or labelled), plus masked "XXXX XXXX 1234" */
+  {k:'IFSC',     re:/\b[A-Z]{4}0[A-Z0-9]{6}\b/g},
+  {k:'Passport', re:/\b[A-PR-WY][1-9]\d{6}\b/g},
+  {k:'UAN',      re:/\bUAN[\s:#-]*\d{12}\b/gi},
+  {k:'TIN',      re:/\bTIN[\s:#-]*\d{9,11}\b|\b\d{3}-\d{2}-\d{4}\b|\b\d{2}-\d{7}\b/gi},
+  {k:'Employee ID', re:/\b(?:EMP|EID)[-\s]?\d{3,8}\b/gi},
+  {k:'Bank A/c', re:/(?<=\b(?:A\/c|Acct|Acc(?:ount)?)(?:\s*(?:No\.?|Number|#))?\s*[:\-]?\s*)\d{9,18}\b/gi},
+  {k:'Bank A/c', fn:()=>findAccounts()},   /* table column under an "Account No" header */
+  {k:'Mobile',   re:/(?<![\d+])(?:\+91[ -]?|0)?[6-9]\d{4}[ -]?\d{5}(?!\d)/g},   /* also "+91 98765 43210" and "09876543210" */
+  {k:'IP address', re:/\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g},
+  {k:'DOB',      fn:()=>findDOB()},          /* label-based only: other dates (sale, purchase, signature) are not DOBs */
+  {k:'Name',     fn:()=>findNames()},   /* label-based: Father's Name, Name of Assessee … value only */
+  {k:'Name',     fn:()=>findSignatureNames()},   /* "Signature" + "(RAHUL SHARMA)" */
+  {k:'Name',     re:new RegExp("(?<=(?<!\\b(?:Trade|Bank|Company|Business|Firm|Brand|Shop|Scheme|Branch|File|User|Legal|Fund)\\s+)\\b(?:Name|Customer|Applicant|Holder)\\s*[:\\-]\\s*)[A-Z][A-Za-z.'-]+(?:[ \\t](?!"+NAME_LABELS+"\\b)[A-Z][A-Za-z.'-]+){0,3}|\\b(?:Mr|Mrs|Ms|Shri|Smt|Kumari|Dr)\\.?[ \\t]+[A-Z][a-z]+(?:[ \\t](?!"+NAME_LABELS+"\\b)[A-Z][a-z]+){0,2}","g")},
+  {k:'Address',  fn:()=>findAddress()},   /* label-based, multi-line, value only */
+  {k:'Trade Name', fn:()=>findTrade()},      /* Trade/Business/Legal name labels and "M/s …", wrapped 2nd line joined */
+  {k:'PIN code', re:/(?<=\b(?:PIN|Pincode|PIN\s*code|Postal\s*code)\s*[:\-]?\s*)[1-9]\d{5}\b/gi},
+  /* PIN at the end of an address line ("Mumbai, Maharashtra - 400069"), as in the reference prompt: after a place name
+     and a comma or dash, at line end or before , / . — never an amount ("Rs. 400000", "Total 250000"). Runs last so it never blocks an address. */
+  {k:'PIN code', re:/(?<!(?:\b(?:rs|inr|total|amount|amt|income|tax|value|price|cost|gain|loss|balance|salary|turnover|sum|net|gross)\.?|₹)[ \t]*[:\-–]?[ \t]*)(?<=[A-Za-z][A-Za-z.]*[ \t]*[,\-–][ \t]*)\b[1-9]\d{5}\b(?=[ \t]*$|[ \t]*[,.])/gim}
+];
+/* Display groups for the left panel (Image/QR is handled separately by findVisual) */
+const GROUPS = [
+  ['Identity',               ['PAN','Aadhaar','VID','Voter ID','Passport','Name','DOB']],
+  ['Financial',              ['Card','Bank A/c','IFSC','GSTIN','TAN','TIN','UPI']],
+  ['Contact & location',     ['Email','Mobile','IP address','Address','PIN code']],
+  ['Employment & business',  ['UAN','Employee ID','Trade Name']],
+  ['Visual',                 ['Image/QR']]
+];
+const OFF_BY_DEFAULT = [];
+
+/* ---------- Helpers ---------- */
+const say = t => $('#msg').textContent = t;
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const snap = () => { S.hist.push(JSON.stringify(S.reds)); if(S.hist.length>100) S.hist.shift(); };
+const ready = () => S.pages.length ? true : (alert('Add a document first: drop it in the Document box on the left, or click the box to browse.'), false);
+
+/* ---------- Lazy library loader (local ./lib first, CDN fallback) ---------- */
+const CDN = 'https://cdnjs.cloudflare.com/ajax/libs/';
+const LIBS = {
+  pdf:    ['pdf.min.js',          CDN+'pdf.js/3.11.174/pdf.min.js'],
+  worker: ['pdf.worker.min.js',   CDN+'pdf.js/3.11.174/pdf.worker.min.js'],
+  jspdf:  ['jspdf.umd.min.js',    CDN+'jspdf/2.5.1/jspdf.umd.min.js'],
+  mammoth:['mammoth.browser.min.js', CDN+'mammoth/1.6.0/mammoth.browser.min.js'],
+  xlsx:   ['xlsx.full.min.js',    CDN+'xlsx/0.18.5/xlsx.full.min.js']
+};
+const loaded = {};
+const addScript = src => new Promise((ok,no)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=no; document.head.appendChild(s); });
+async function lib(name){
+  if(loaded[name]) return;
+  const [file,cdn] = LIBS[name];
+  try { await addScript('lib/'+file); }
+  catch { try { await addScript(cdn); }
+          catch { throw new Error('Could not load '+file+'. For offline use, place it in a "lib" folder next to this HTML file.'); } }
+  loaded[name] = true;
+}
+
+/* ---------- File loading ---------- */
+const TEXT_EXT = ['txt','csv','log','json','md'];
+async function loadFile(f){
+  const ext = (f.name.split('.').pop()||'').toLowerCase();
+  const known = ['pdf','jpg','jpeg','png','doc','docx','xls','xlsx',...TEXT_EXT];
+  if(!known.includes(ext)){ alert('Unsupported file type: .'+ext+'\nSupported: PDF, JPG, PNG, TXT, DOCX, XLS, XLSX.'); return; }
+  if(ext==='doc'){ alert('Legacy .doc files cannot be read offline. Please save the file as .docx and add it again.'); return; }
+  try{
+    say('Loading '+f.name+'…');
+    const pages = [];
+    if(ext==='pdf') await loadPDF(f,pages);
+    else if(['jpg','jpeg','png'].includes(ext)) await loadImage(f,pages);
+    else if(ext==='docx'){ await lib('mammoth'); const r=await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()}); pages.push({text:r.value}); }
+    else if(ext==='xls'||ext==='xlsx'){ await lib('xlsx'); const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+      pages.push({text:wb.SheetNames.map(n=>'=== '+n+' ===\n'+XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n\n')}); }
+    else pages.push({text: await f.text()});
+    if(ext!=='pdf') S.doc=null;
+    S.name=f.name; S.pages=pages; S.reds=[]; S.hist=[];
+    S.kind = pages[0].canvas ? (ext==='pdf'?'pdf':'image') : 'text';
+    $('#fileinfo').textContent = f.name+' · '+(f.size/1024).toFixed(1)+' KB · '+pages.length+(pages.length>1?' pages':' page');
+    $('#fmt').innerHTML = S.kind==='text' ? '<option value="txt">Export as TXT</option>' : '<option value="pdf">Export as PDF</option><option value="png">Export as PNG</option>';
+    draw(); table(); say('Loaded '+f.name+'.');
+  }catch(e){ alert('Could not open this file.\n'+e.message); say('Load failed.'); }
+}
+
+/* Group text items into visual lines (same y), read each line left to right, join lines with "\n".
+   This keeps a table row (label + value) on one line and stops a match from running into the next row. */
+function layoutText(raw){
+  const lines=[];
+  raw.slice().sort((a,b)=>(a.y+a.h/2)-(b.y+b.h/2)||a.x-b.x).forEach(tok=>{
+    const cy=tok.y+tok.h/2, l=lines.find(l=>Math.abs(l.cy-cy)<Math.max(l.h,tok.h)*0.5);
+    if(l){ l.toks.push(tok); l.h=Math.max(l.h,tok.h); } else lines.push({cy,h:tok.h,toks:[tok]});
+  });
+  lines.sort((a,b)=>a.cy-b.cy);
+  let text=''; const map=[];
+  lines.forEach((l,li)=>{
+    if(li) text+='\n';
+    l.toks.sort((a,b)=>a.x-b.x).forEach((tok,ti)=>{
+      if(ti) text+=' ';
+      const s=text.length, str=tok.str.trim(); text+=str;
+      map.push({s,e:text.length,x:tok.x,y:tok.y,w:tok.w,h:tok.h,li,str});
+    });
+  });
+  return {text,map};
+}
+/* PDF: render each page to a canvas and keep text positions for detection */
+async function loadPDF(f,pages){
+  await lib('pdf'); await lib('worker');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';   // as per the prompt (worker script is also loaded above, so double-click / file:// works)
+  const doc = await pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer()),isEvalSupported:false,verbosity:pdfjsLib.VerbosityLevel.ERRORS}).promise;   // ERRORS only: hides the harmless "Setting up fake worker" notice
+  for(let n=1;n<=doc.numPages;n++){
+    say('Rendering page '+n+' of '+doc.numPages+'…');
+    const pg=await doc.getPage(n), vp=pg.getViewport({scale:SCALE});
+    const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
+    await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    const raw=[];                                    // text items with their on-canvas boxes
+    for(const it of (await pg.getTextContent()).items){
+      if(!it.str||!it.str.trim()) continue;
+      const t=pdfjsLib.Util.transform(vp.transform,it.transform), h=Math.hypot(t[2],t[3]);
+      if(Math.abs(t[1])>Math.abs(t[0])*0.2) continue;   // sideways table labels are never PII values
+      raw.push({str:it.str,x:t[4],y:t[5]-h,w:it.width*SCALE,h});
+    }
+    const {text,map}=layoutText(raw);                // map: char range -> on-canvas rectangle, li = visual line
+    /* Embedded images: track the transform matrix through the operator list */
+    const all=[], OPS=pdfjsLib.OPS, ol=await pg.getOperatorList(); let m=vp.transform; const st=[];
+    const IMG=[OPS.paintImageXObject,OPS.paintInlineImageXObject,OPS.paintImageMaskXObject,OPS.paintJpegXObject].filter(x=>x!==undefined);
+    ol.fnArray.forEach((f,k)=>{
+      const a=ol.argsArray[k];
+      if(f===OPS.save) st.push(m); else if(f===OPS.restore||f===OPS.paintFormXObjectEnd) m=st.pop()||vp.transform;
+      else if(f===OPS.transform) m=pdfjsLib.Util.transform(m,a);
+      else if(f===OPS.paintFormXObjectBegin){ st.push(m); if(a&&a[0]&&a[0].length===6) m=pdfjsLib.Util.transform(m,a[0]); }   // images inside forms
+      else if(IMG.includes(f)){
+        const xs=[],ys=[]; for(const [u,v] of [[0,0],[1,0],[0,1],[1,1]]){ xs.push(m[0]*u+m[2]*v+m[4]); ys.push(m[1]*u+m[3]*v+m[5]); }
+        const r=[Math.min(...xs),Math.min(...ys),Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys)];
+        if(r[2]>15*SCALE&&r[3]>15*SCALE&&!(r[2]>c.width*0.9&&r[3]>c.height*0.9)) all.push(r);   // skip tiny decorations and full-page scans
+      }
+    });
+    /* Keep only what can be a QR code, barcode, photo or signature (reference prompt): at most half the page wide and a
+       third high, and not covering text — a form background or watermark has text on top of it, a QR code does not. */
+    const imgs=all.filter(b=>b[2]<=c.width*0.5&&b[3]<=c.height*0.35&&
+      raw.filter(t=>{ const cx=t.x+t.w/2, cy=t.y+t.h/2; return cx>b[0]&&cx<b[0]+b[2]&&cy>b[1]&&cy<b[1]+b[3]; }).length<=2);
+    pages.push({canvas:c,text,map,imgs,pno:n});
+  }
+  S.doc=doc;                                         // kept for the high-resolution export
+}
+/* Images: single canvas page, no text layer (no OCR offline) */
+function loadImage(f,pages){
+  return new Promise((ok,no)=>{ const img=new Image(), u=URL.createObjectURL(f);
+    img.onload=()=>{ const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0); URL.revokeObjectURL(u); pages.push({canvas:c,text:'',map:[]}); ok(); };
+    img.onerror=()=>no(new Error('Image could not be decoded.')); img.src=u; });
+}
+
+/* ---------- Preview rendering ---------- */
+function draw(){
+  const box=$('#preview'); box.innerHTML='';
+  if(!S.pages.length){ box.innerHTML='<div id="empty"><b>Drop a document here or in the Document box on the left</b></div>'; return; }
+  if(S.kind==='text'){ drawText(box); return; }
+  const z=$('#zoom').value/100;
+  S.pages.forEach((p,i)=>{
+    const d=document.createElement('div'); d.className='page'; d.id='pg'+i;
+    d.style.width=(p.canvas.width/SCALE*z)+'px'; d.style.aspectRatio=p.canvas.width+'/'+p.canvas.height;
+    d.appendChild(p.canvas);
+    const ov=document.createElement('div'); ov.className='ov'; d.appendChild(ov); box.appendChild(d);
+    bindDraw(ov,p.canvas);
+  });
+  boxes();
+}
+/* Draw red (pending) / black (applied) boxes over each page */
+function boxes(){
+  if(S.kind==='text'){ drawText($('#preview')); return; }
+  S.pages.forEach((p,i)=>{
+    const ov=document.querySelector('#pg'+i+' .ov'); if(!ov) return;
+    ov.querySelectorAll('.box').forEach(b=>b.remove());
+    S.reds.filter(r=>r.page===i&&r.rect).forEach(r=>{
+      const b=document.createElement('div'); b.className='box '+r.status.toLowerCase();
+      const [x,y,w,h]=r.rect, W=p.canvas.width, H=p.canvas.height;
+      b.style.cssText=`left:${x/W*100}%;top:${y/H*100}%;width:${w/W*100}%;height:${h/H*100}%`; ov.appendChild(b);
+    });
+  });
+}
+/* Manual box: drag on the page overlay */
+function bindDraw(ov,canvas){
+  const idx=S.pages.findIndex(p=>p.canvas===canvas);
+  ov.onpointerdown=e=>{
+    const r=ov.getBoundingClientRect(), k=canvas.width/r.width, x0=e.clientX-r.left, y0=e.clientY-r.top;
+    const g=document.createElement('div'); g.className='ghost'; ov.appendChild(g); ov.setPointerCapture(e.pointerId);
+    ov.onpointermove=m=>{ const x=m.clientX-r.left,y=m.clientY-r.top;
+      g.style.cssText=`left:${Math.min(x,x0)}px;top:${Math.min(y,y0)}px;width:${Math.abs(x-x0)}px;height:${Math.abs(y-y0)}px`; };
+    ov.onpointerup=m=>{
+      ov.onpointermove=ov.onpointerup=null; g.remove();
+      const x=Math.max(0,Math.min(m.clientX-r.left,r.width)), y=Math.max(0,Math.min(m.clientY-r.top,r.height));
+      if(Math.abs(x-x0)<5||Math.abs(y-y0)<5) return;           // ignore accidental clicks
+      snap(); S.reds.push({id:S.id++,type:'Manual',value:'[Drawn box]',page:idx,status:'Pending',
+        rect:[Math.min(x,x0)*k,Math.min(y,y0)*k,Math.abs(x-x0)*k,Math.abs(y-y0)*k]});
+      boxes(); table();
+    };
+  };
+}
+/* Text view: pending = highlighted original, applied = █ of the same length (layout and columns stay in place) */
+function drawText(box){
+  const t=S.pages[0].text, pre=document.createElement('pre'); pre.id='txt';
+  const plain=(a,b)=>{ if(b>a){ const s=document.createElement('span'); s.dataset.s=a; s.textContent=t.slice(a,b); pre.append(s); } };
+  let pos=0;
+  for(const r of S.reds.filter(r=>r.range).sort((a,b)=>a.range[0]-b.range[0])){
+    const [a,b]=r.range; if(a<pos) continue; plain(pos,a);
+    const m=document.createElement(r.status==='Applied'?'span':'mark');
+    m.className=r.status==='Applied'?'done':''; m.textContent=r.status==='Applied'?t.slice(a,b).replace(/[^\n]/g,'█'):t.slice(a,b); pre.append(m); pos=b;
+  }
+  plain(pos,t.length);
+  pre.onmouseup=()=>{                                       // manual selection -> pending redaction
+    const sel=getSelection(); if(!sel.rangeCount||sel.isCollapsed) return;
+    const g=sel.getRangeAt(0), off=(n,o)=>{ if(n.nodeType!==3) return null; const sp=n.parentElement.closest('[data-s]'); return sp?+sp.dataset.s+o:null; };
+    const a=off(g.startContainer,g.startOffset), b=off(g.endContainer,g.endOffset); sel.removeAllRanges();
+    if(a===null||b===null||a>=b) return;
+    snap(); S.reds.push({id:S.id++,type:'Manual',value:t.slice(a,b).slice(0,60),page:0,range:[a,b],status:'Pending'});
+    boxes(); table();
+  };
+  const keep=box.scrollTop; box.innerHTML=''; box.appendChild(pre); box.scrollTop=keep;
+}
+
+/* ---------- Detection ---------- */
+/* Boxes for the characters s..e on a PDF page: one tight box per visual line, only around those characters
+   (proportional inside each text run). Words on the same line that are next to each other share one box. */
+/* Position inside a text run by MEASURED width (digits are wider than "i", "l", spaces), not by character count,
+   so a box never stops short of the last digit. A small safety margin is added on each side. */
+const _mc=document.createElement('canvas').getContext('2d'); _mc.font='100px Arial, Helvetica, sans-serif';
+const tw=t=>_mc.measureText(t).width;
+function pieces(p,s,e){
+  const out=[];
+  for(const m of p.map){
+    if(m.e<=s||m.s>=e) continue;
+    const a=Math.max(s,m.s), b=Math.min(e,m.e), str=m.str||p.text.slice(m.s,m.e), W=tw(str)||1;
+    const f1=tw(str.slice(0,a-m.s))/W, f2=tw(str.slice(0,b-m.s))/W, pad=(a>m.s||b<m.e)?m.h*0.25:0;
+    out.push({s:a,e:b,li:m.li,x1:Math.max(m.x,m.x+m.w*f1-pad),x2:Math.min(m.x+m.w,m.x+m.w*f2+pad),y1:m.y,y2:m.y+m.h,h:m.h});
+  }
+  out.sort((u,v)=>u.li-v.li||u.x1-v.x1);
+  const g=[];
+  for(const q of out){ const c=g[g.length-1];
+    if(c&&c.li===q.li&&q.x1-c.x2<q.h*1.2){ c.e=q.e; c.x2=Math.max(c.x2,q.x2); c.y1=Math.min(c.y1,q.y1); c.y2=Math.max(c.y2,q.y2); }
+    else g.push({...q}); }
+  /* 2 units (PDF points) of padding on every side, as in the reference prompt */
+  const P=2*SCALE;
+  /* Size guard (reference prompt): a text box is never taller than 3 text lines or wider than 75% of the page */
+  if(p._mh===undefined){ const hs=p.map.map(m=>m.h).sort((a,b)=>a-b); p._mh=hs[hs.length>>1]||12*SCALE; }
+  return g.filter(c=>c.y2-c.y1<=Math.max(30*SCALE,p._mh*3)&&c.x2-c.x1<=p.canvas.width*0.75)
+          .map(c=>({s:c.s,e:c.e,rect:[c.x1-P,c.y1-P,c.x2-c.x1+2*P,c.y2-c.y1+2*P]}));
+}
+/* Add text range s..e of page i as pending item(s). split=false: skip if it touches an earlier item.
+   split=true: keep only the free parts (used by label-based finders). Returns how many items were added. */
+function addRange(p,i,type,s,e,split){
+  while(e>s&&/\s/.test(p.text[e-1])) e--;
+  while(s<e&&/\s/.test(p.text[s])) s++;
+  if(e<=s) return 0;
+  let segs=[[s,e]];
+  for(const r of S.reds){
+    if(r.page!==i||!r.range) continue;
+    segs=segs.flatMap(([a,b])=>{
+      if(!(r.range[0]<b&&a<r.range[1])) return [[a,b]];
+      return split?[[a,Math.min(b,r.range[0])],[Math.max(a,r.range[1]),b]].filter(([x,y])=>y>x):[];
+    });
+  }
+  let n=0;
+  for(const [a,b] of segs){
+    if(!p.canvas){ S.reds.push({id:S.id++,type,value:p.text.slice(a,b).trim(),page:i,range:[a,b],status:'Pending'}); n++; continue; }
+    for(const q of pieces(p,a,b)){
+      S.reds.push({id:S.id++,type,value:p.text.slice(q.s,q.e).trim(),page:i,range:[q.s,q.e],rect:q.rect,status:'Pending'}); n++;
+    }
+  }
+  return n;
+}
+/* Run one regex over every page; add pending items, skipping overlaps */
+function find(re,type,valid){
+  let n=0;
+  S.pages.forEach((p,i)=>{
+    for(const m of p.text.matchAll(re)){
+      if(valid&&!valid(m[0])) continue;
+      n+=addRange(p,i,type,m.index,m.index+m[0].length,false);
+    }
+  });
+  return n;
+}
+
+/* ---------- Label-based finders: Father's Name / Name of Assessee / Address ----------
+   Same rule as an e-mail or the assessee name: only the VALUE is boxed, never the label, and a value
+   never runs into the next field. Works for "Label: value", table rows (label | value) and a value on the next line. */
+const REL_RE=/\b(?:(?:father|mother|husband)['\u2019]?s?\s*name|spouse(?:['\u2019]s)?(?:\s*name)?|guardian(?:['\u2019]s)?(?:\s*name)?|[sdwc]\/o|son of|daughter of|wife of)\b|पिता का नाम|पति का नाम/i;
+const NAME_LBL=/\b(?:name\s+of\s+(?:the\s+)?(?:assessee|taxpayer|applicant|employee|customer|account\s+holder|depositor|insured|nominee|partner|proprietor|director|karta|member|borrower|guarantor|deductee|person|individual)|full\s+name|(?:applicant|employee|customer|nominee)['\u2019]?s?\s+name|account\s+holder(?:['\u2019]s)?(?:\s+name)?|holder['\u2019]s\s+name|verified\s+by|naam)\b|नाम/i;
+/* A plain "Name" label: "Name: …", or "Name" alone on its line with the value on the next line */
+const NAME_BARE=/\bname\s*[:\-–]|^\s*name\s*$/i;
+const NOT_PERSON=/\b(?:bank\s+name|name\s+of\s+(?:the\s+)?(?:bank|company|deductor|collector|employer|scrip|securit(?:y|ies)|branch|mutual\s+fund|fund|scheme|insurer|institution|instrument|share|stock|asset)|(?:company|scrip|scheme|branch|file|form|user)\s*name)\b/i;
+const TRADE=/\b(?:trade\s*name|name\s+of\s+(?:the\s+)?(?:business|firm|concern|proprietorship|enterprise|shop|establishment)|business\s+name|firm['\u2019]?s?\s+name|legal\s+name(?:\s+of\s+(?:the\s+)?business)?|brand\s+name|shop\s+name)\b/i;
+const BIZ_STOP=/\b(?:pan|gstin|gst\s*no|address|mobile|phone|e-?mail|status|nature\s+of\s+business|date|code|registration|proprietor)\b|[:(,]/i;
+const BIZ_WORDS=/\b(?:company|co\.?|traders?|trading|enterprises?|industr(?:y|ies)|agenc(?:y|ies)|associates|stores?|mart|works|corp(?:oration|\.)?|llp|ltd\.?|limited|pvt\.?|private|sons|brothers|bros\.?|solutions|services|exports?|imports?|textiles|jewell?ers|hardware|medicals?|pharma|motors|foods?|sales|cent(?:re|er)|emporium|udyog|bhandar|kendra|ventures|consultants?|distributors?|suppliers?|dealers?)\b/i;
+const NAME_STOP=/\b(?:dob|date of birth|gender|male|female|pan|aadhaar|address|mobile|mob|phone|tele|e-?mail|signature|status|code|ward|having|aged?|residing|resident|holding|bearing|using|son of|daughter of|wife of|father|mother|husband|spouse|assessment year|government of india|income tax department)\b|\bA\.\s?Y\.?|[():\d]/i;
+const NOT_A_NAME=/^(?:individual|huf|firm|company|aop|boi|trust|original|revised|resident|non-resident|male|female|yes|no|nil|na|n\.a\.|savings?|current|status|total|sample|dummy|name|pan|of|the|signature|date|relation|relationship|age|designation|particulars|description|details|type|amount|remarks|gender|occupation)$/i;
+const ADDR_LBL=/(?<!\b(?:ip|e-?mail|mail|web|mac)\s{0,2})\b(?:address|addr|residing at|resident of|r\/o)\b|पता/i;
+const ADDR_CUT=/\b(?:pan|e-?mail|mobile|mob|phone|tele|gender|date\s+of\s+birth|dob|account\s+no|a\/c\s*no|ifsc|aadhaar|gstin|form\s+number|nature\s+of\s+business|assessment\s+year)\b|\b(?:status|type|ward|code)\b\s*[:\-–]|^(?:status|type|ward|code)\b/i;
+/* Lines of a page: text range + the PDF text items on that line */
+function pageLines(p){
+  if(p._ln) return p._ln;
+  const out=[]; let pos=0;
+  p.text.split('\n').forEach((t,li)=>{ out.push({li,s:pos,e:pos+t.length,t,items:(p.map||[]).filter(m=>m.li===li)}); pos+=t.length+1; });
+  return p._ln=out;
+}
+/* Where the value starts: after the label on the same line, or on the next line if the label stands alone */
+function afterLabel(L,idx,mEnd){
+  const ln=L[idx]; let s=ln.s+mEnd;
+  s+=ln.t.slice(mEnd).match(/^[\s:\-–.\/]*/)[0].length;
+  if(ln.e-s<2&&L[idx+1]) return {idx:idx+1,s:L[idx+1].s};
+  return {idx,s};
+}
+/* Cut a name at the first non-name word / digit (same rule as the reference prompt's trimName). Returns end or -1. */
+function trimNm(p,s0,e0){
+  const raw=p.text.slice(s0,e0), cut=raw.search(NAME_STOP);
+  if(cut===0) return -1;
+  let e=s0+(cut<0?raw.length:cut);
+  while(e>s0&&/[\s,\-.]/.test(p.text[e-1])&&!/\b[A-Z]\.$/.test(p.text.slice(s0,e))) e--;
+  const nm=p.text.slice(s0,e);
+  if(!/^[A-Za-zऀ-ॿ.' ]{2,60}$/.test(nm)||!/[A-Za-zऀ-ॿ]{2}/.test(nm)||nm.trim().split(/\s+/).length>5||NOT_A_NAME.test(nm.trim())) return -1;
+  return e;
+}
+function findNames(){
+  let n=0;
+  S.pages.forEach((p,i)=>{
+    const L=pageLines(p), aadhaarCard=/aadhaar|आधार|government of india/i.test(p.text);
+    L.forEach((ln,idx)=>{
+      let re=null;
+      if(REL_RE.test(ln.t)) re=REL_RE;                                     // Father's / Husband's name, S/o …
+      else if(TRADE.test(ln.t)) re=null;                                    // a business name: findTrade handles it
+      else if(!NOT_PERSON.test(ln.t)) re=NAME_LBL.test(ln.t)?NAME_LBL:NAME_BARE.test(ln.t)?NAME_BARE:null;
+      if(re){
+        const m=re.exec(ln.t), v=afterLabel(L,idx,m.index+m[0].length), e=trimNm(p,v.s,L[v.idx].e);
+        if(e>v.s) n+=addRange(p,i,'Name',v.s,e,true);
+      }
+      /* Aadhaar card: the holder's name is the line just above the DOB line */
+      const pv=L[idx-1];
+      if(aadhaarCard&&pv&&DOB_LBL.test(ln.t)&&!NAME_LBL.test(pv.t)&&!NAME_BARE.test(pv.t)){ const e=trimNm(p,pv.s,pv.e); if(e>pv.s) n+=addRange(p,i,'Name',pv.s,e,true); }
+    });
+  });
+  return n;
+}
+/* Trade name, as in the reference prompt: value after a trade/business label, "M/s" dropped, cut at the next field,
+   and a wrapped 2nd line joined when it is a business word ("ABC" / "Trading Company"). Also any "M/s …" in the text. */
+function trimTrade(p,L,s0,e0){
+  const T=p.text; let s=s0+(T.slice(s0,e0).match(/^\s*(?:M\/s\.?|Messrs\.?)?\s*/i)[0].length), e=e0;
+  const cut=T.slice(s,e).search(BIZ_STOP);
+  if(cut===0) return null;
+  if(cut>0) e=s+cut;
+  while(e>s&&/[\s;\-]/.test(T[e-1])) e--;
+  const v=T.slice(s,e);
+  if(v.length<2||!/[A-Za-z]{2}/.test(v)||/^\d/.test(v)) return null;
+  const li=L.findIndex(l=>l.s<=s&&s<=l.e), lr=L[li], nx=L[li+1];
+  if(cut<0&&nx&&!T.slice(e,lr.e).trim()){
+    const f=(T.slice(nx.s,nx.e).match(/^[A-Za-z&.'\- ]{2,40}/)||[''])[0].replace(/[\s.\-]+$/,'');
+    if(f&&BIZ_WORDS.test(f)&&f.split(/\s+/).length<=4&&!BIZ_STOP.test(f)) e=nx.s+f.length;
+  }
+  return {s,e};
+}
+function findTrade(){
+  let n=0;
+  S.pages.forEach((p,i)=>{
+    const L=pageLines(p);
+    L.forEach((ln,idx)=>{
+      const m=TRADE.exec(ln.t);
+      if(m){ const v=afterLabel(L,idx,m.index+m[0].length), t=trimTrade(p,L,v.s,L[v.idx].e); if(t) n+=addRange(p,i,'Trade Name',t.s,t.e,true); }
+      for(const mm of ln.t.matchAll(/\b(?:M\/s\.?|Messrs\.?)\s*(?=[A-Z])/gi)){
+        const t=trimTrade(p,L,ln.s+mm.index+mm[0].length,ln.e); if(t) n+=addRange(p,i,'Trade Name',t.s,t.e,true);
+      }
+    });
+  });
+  return n;
+}
+/* PAN, as in the reference prompt: ABCDE1234F, or with spaces ("ABCPE 1234F") only when a PAN label is just before
+   it or the 4th letter is a valid holder type — so ordinary words + numbers are not flagged. */
+function findPAN(){
+  let n=0;
+  S.pages.forEach((p,i)=>{
+    for(const m of p.text.matchAll(/\b[A-Z]{5}[ ]?\d{4}[ ]?[A-Z]\b/g)){
+      if(/ /.test(m[0])){
+        const lab=/\b(?:PAN|permanent account number)\b/i.test(p.text.slice(Math.max(0,m.index-40),m.index));
+        if(!lab&&!PAN_HOLDER.test(m[0].replace(/ /g,''))) continue;
+      }
+      n+=addRange(p,i,'PAN',m.index,m.index+m[0].length,false);
+    }
+  });
+  return n;
+}
+/* Aadhaar: 12 digits starting 2–9 that pass the Verhoeff check (or have an Aadhaar label just before them),
+   and masked Aadhaar "XXXX XXXX 1234" / "****-****-1234" */
+function findAadhaar(){
+  let n=0;
+  S.pages.forEach((p,i)=>{
+    for(const m of p.text.matchAll(/(?<!\d)[2-9]\d{3}[ -]?\d{4}[ -]?\d{4}(?!\d)/g)){
+      const lab=/\b(?:aadhaa?r|uid(?:ai)?)\b|आधार/i.test(p.text.slice(Math.max(0,m.index-40),m.index));
+      if(verhoeff(m[0])||lab) n+=addRange(p,i,'Aadhaar',m.index,m.index+m[0].length,false);
+    }
+    for(const m of p.text.matchAll(/(?<![\w*])[Xx*]{4}[ -]?[Xx*]{4}[ -]?\d{4}(?!\d)/g)) n+=addRange(p,i,'Aadhaar',m.index,m.index+m[0].length,false);
+  });
+  return n;
+}
+function findAddress(){
+  let n=0;
+  S.pages.forEach((p,i)=>{
+    const L=pageLines(p);
+    L.forEach((ln,idx)=>{
+      const m=ADDR_LBL.exec(ln.t); if(!m) return;
+      /* as in the reference prompt: when the label sits beside / between address lines, the 1st line is above it */
+      const pv=L[idx-1];
+      if(pv&&/,\s*$/.test(pv.t)&&/\d|,.*,/.test(pv.t)&&!ADDR_CUT.test(pv.t)&&!/^\s*(?:name|pan|status|father|date|e-?mail|mobile|form)\b|:/i.test(pv.t))
+        n+=addRange(p,i,'Address',pv.s,pv.e,true);
+      let v=afterLabel(L,idx,m.index+m[0].length);
+      const first=p.text.slice(v.s,L[v.idx].e);
+      const lead=first.match(/^(?:(?:of|for)\s+(?:the\s+)?(?:assessee|taxpayer|applicant|employee|customer|account\s+holder|registered\s+office|business|firm|company)|details?|line\s*\d?)\s*[:\-–.]*\s*/i);
+      if(lead){ if(lead[0].length>=first.trim().length&&L[v.idx+1]) v={idx:v.idx+1,s:L[v.idx+1].s}; else v={idx:v.idx,s:v.s+lead[0].length}; }
+      // value column x (table layout: label and value separated by a wide gap)
+      const vit=L[v.idx].items, k0=vit.findIndex(it=>it.e>v.s), vi=k0>=0?vit[k0]:null, x0=vi?vi.x:null;
+      const colMode=!!(vi&&v.idx===idx&&k0>0&&vi.x-(vit[k0-1].x+vit[k0-1].w)>vi.h*3);
+      let last=-1, prev='';
+      for(let k=v.idx,cnt=0;k<L.length&&cnt<6;k++,cnt++){
+        const l=L[k], s0=cnt?l.s:v.s, seg=p.text.slice(s0,l.e), cut=seg.search(ADDR_CUT);
+        if(cut===0) break;
+        const part=p.text.slice(s0,cut>0?s0+cut:l.e);
+        if(!cnt&&!/[\d,]/.test(part)&&part.trim().split(/\s+/).length<3) break;       // table header, not an address
+        if(cnt){
+          if(/:/.test(part)) break;                                                    // next "Label: value"
+          if(l.items.length&&x0!==null){
+            const lead0=l.items[0].x;
+            if(colMode&&lead0<x0-3) break;                                              // label column = a new table row
+            if(!colMode&&lead0<x0-3&&!/[,\-–]\s*$/.test(prev)) break;                  // wrapped line only after a comma
+          } else if(!/[,\-–]\s*$/.test(prev)) break;
+        }
+        n+=addRange(p,i,'Address',s0,cut>0?s0+cut:l.e,true); last=k; prev=part.trim();
+        if(cut>0||/\b[1-9]\d{2}\s?\d{3}\b/.test(part)) break;                           // stop at the PIN / next field
+      }
+      const nx=L[last+1];                                                                // "India" alone after the PIN
+      if(last>=0&&nx&&/^(?:India|Bharat)\.?$/i.test(nx.t.trim())) n+=addRange(p,i,'Address',nx.s,nx.e,true);
+    });
+  });
+  return n;
+}
+/* Column finder for tables: the label (e.g. "Account No", "Date of Birth") is in the header row and the values sit
+   in the rows below it, in the same column. PDF: only cells centred in the header's column are taken, and the scan
+   stops after 3 rows with nothing in that column (end of table). Text/CSV: same column index, until a blank line.
+   Returns the header lines it handled, so label finders do not also read them as "Label: value". */
+function findColumn(hdr,val,type){
+  let n=0; const handled=new Set();
+  S.pages.forEach((p,i)=>{
+    const L=pageLines(p);
+    L.forEach((ln,idx)=>{
+      const m=hdr.exec(ln.t); if(!m) return;
+      const hs=ln.s+m.index, he=hs+m[0].length;
+      if(p.canvas){
+        const hit=ln.items.filter(it=>it.e>hs&&it.s<he);
+        if(!hit.length||ln.items.length<2||hit.some(it=>it.e-it.s>m[0].length+12)) return;   // a header cell, not "A/c No: …" in a sentence
+        handled.add(i+':'+idx);
+        const h0=Math.min(...hit.map(h=>h.x)), h1=Math.max(...hit.map(h=>h.x+h.w)), hw=h1-h0;
+        const pad=Math.max(hit[0].h*2,hw*0.5), c0=h0-pad, c1=h1+pad;
+        for(let k=idx+1,miss=0;k<L.length&&miss<3;k++){
+          const l=L[k]; if(hdr.test(l.t)) break;                             // next table with its own header
+          /* a table cell: centred in this column and not much wider than it (a sentence line is not a cell) */
+          const inCol=l.items.filter(it=>{ const cx=it.x+it.w/2; return cx>=c0&&cx<=c1&&it.w<=(c1-c0)*1.5; });
+          miss=inCol.length?0:miss+1;
+          for(const it of inCol) for(const d of p.text.slice(it.s,it.e).matchAll(val))
+            n+=addRange(p,i,type,it.s+d.index,it.s+d.index+d[0].length,false);
+        }
+      } else {
+        const cells=ln.t.split(/,|\t|\|/), col=cells.findIndex(c=>hdr.test(c));
+        if(col<0||cells.length<2) return;
+        handled.add(i+':'+idx);
+        for(let k=idx+1;k<L.length&&L[k].t.trim();k++){
+          const l=L[k], sep=/,|\t|\|/g; let s=0,ci=0,mm;
+          while(ci<col&&(mm=sep.exec(l.t))){ s=mm.index+1; ci++; }
+          if(ci<col) continue;
+          const nx=l.t.slice(s).search(/,|\t|\|/), cell=l.t.slice(s,nx<0?l.t.length:s+nx);
+          for(const d of cell.matchAll(val)) n+=addRange(p,i,type,l.s+s+d.index,l.s+s+d.index+d[0].length,false);
+        }
+      }
+    });
+  });
+  return {n,handled};
+}
+/* Bank accounts in a table column under an "Account No" header */
+const ACC_HDR=/\b(?:a\/c|acct|acc(?:ount)?|bank\s+account)\.?\s*(?:no\b\.?|number|#)/i;   /* needs No/Number/#: a heading like "Bank Account Detail" is not a column */
+const ACC_NUM=/(?<![\dA-Za-z])\d{9,18}(?![\dA-Za-z])/g;
+const findAccounts=()=>findColumn(ACC_HDR,ACC_NUM,'Bank A/c').n;
+
+/* Date of birth — LABEL-BASED ONLY (as in the reference prompt). A date is a DOB only when a DOB label goes with it:
+   "DOB: 12/03/1990", the label alone with the date on the next line, or a "Date of Birth" table column.
+   Other dates (date of sale, purchase date, signature date, "31/01/2018") are NOT personal data and are left alone. */
+const DOB_LBL=/\b(?:dob|d\.o\.b\.?|date\s+of\s+birth|birth\s*date|born\s+on|year\s+of\s+birth|yob)\b|जन्म/i;
+const DATE_RE=/\b\d{1,2}[\/\-.]\d{1,2}[\/\-.](?:19|20)?\d{2}\b|\b\d{1,2}[\s\-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s\-,]*(?:19|20)\d{2}\b/gi;
+function findDOB(){
+  const col=findColumn(DOB_LBL,DATE_RE,'DOB'); let n=col.n;
+  S.pages.forEach((p,i)=>{
+    const L=pageLines(p);
+    L.forEach((ln,idx)=>{
+      const m=DOB_LBL.exec(ln.t); if(!m) return;
+      const DR=/year\s+of\s+birth|yob/i.test(m[0])?/\b(?:19|20)\d{2}\b/g:DATE_RE;    // "Year of Birth: 1990"
+      const same=[...ln.t.slice(m.index+m[0].length).matchAll(DR)][0];   // "DOB: 12/03/1990"
+      if(same){ const s=ln.s+m.index+m[0].length+same.index; n+=addRange(p,i,'DOB',s,s+same[0].length,false); return; }
+      if(col.handled.has(i+':'+idx)) return;                                // table header: the column finder did it
+      const nx=L[idx+1], d=nx&&[...nx.t.matchAll(DR)][0];              // label alone, date on the next line
+      if(d) n+=addRange(p,i,'DOB',nx.s+d.index,nx.s+d.index+d[0].length,false);
+    });
+  });
+  return n;
+}
+
+/* Signatory name — as in the reference prompt: on a line with "Signature" (or the line right after it),
+   a name written in brackets, e.g. "Signature" / "(RAHUL SHARMA)". */
+function findSignatureNames(){
+  let n=0;
+  S.pages.forEach((p,i)=>{
+    const L=pageLines(p);
+    L.forEach((ln,idx)=>{
+      if(!/\b(?:signature|signed\s+by|authori[sz]ed\s+signatory)\b/i.test(ln.t)) return;
+      for(const l of [ln,L[idx+1]]){
+        const m=l&&l.t.match(/\(\s*([A-Za-z][A-Za-z.' ]{2,50}?)\s*\)/);
+        if(m&&!NOT_A_NAME.test(m[1].trim())){ const s=l.s+m.index+m[0].indexOf(m[1]); n+=addRange(p,i,'Name',s,s+m[1].length,true); break; }
+      }
+    });
+  });
+  return n;
+}
+
+/* Repeats of every name found — as in the reference prompt: a name detected once (e.g. after "Name of Assessee")
+   is also redacted wherever else it appears in the document (signature, footer, "verified by"). */
+function findNameRepeats(){
+  const keys=new Set();
+  const kind={};
+  S.reds.filter(r=>(r.type==='Name'||r.type==='Trade Name')&&r.range).forEach(r=>{
+    const k=r.value.replace(/^(?:mrs?|ms|miss|shri|smt|dr|late)\.?\s+/i,'').replace(/\s+/g,' ').trim();
+    if(k.length>=4&&(k.includes(' ')||r.type==='Trade Name')){ keys.add(k.toLowerCase()); kind[k.toLowerCase()]=r.type; }
+  });
+  let n=0;
+  for(const k of keys){
+    const re=new RegExp('(?<![A-Za-z])'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/ /g,'\\s+')+'(?![A-Za-z])','gi');
+    S.pages.forEach((p,i)=>{ for(const m of p.text.matchAll(re)) n+=addRange(p,i,kind[k],m.index,m.index+m[0].length,true); });
+  }
+  return n;
+}
+function textGuard(){
+  if(S.kind==='image'){ alert('Images have no text layer and this tool works offline without OCR.\nPlease draw redaction boxes manually.'); return false; }
+  return true;
+}
+$('#bDetect').onclick=async()=>{
+  if(!ready()) return;
+  const on=[...document.querySelectorAll('.pre:checked')].map(c=>c.value);
+  if(!on.length){ alert('Tick at least one data type on the left.'); return; }
+  const vis=on.includes('Image/QR');
+  if(S.kind==='image'&&!vis){ alert('Images have no text layer and this tool works offline without OCR.\nTick Image/QR (QR codes) or draw redaction boxes manually.'); return; }
+  snap(); let n=0;
+  PRESETS.filter(p=>on.includes(p.k)).forEach(p=>n+=p.fn?p.fn():find(p.re,p.k,p.valid));
+  if(on.includes('Name')||on.includes('Trade Name')) n+=findNameRepeats();                    // every other place a found name appears
+  if(vis&&S.kind!=='text') n+=await findVisual();
+  boxes(); table(); say(n+' item(s) detected. Review, then click Apply.');
+};
+/* Visual items: embedded PDF images (from the operator list) + QR codes (browser BarcodeDetector, offline) */
+async function findVisual(){
+  let n=0; const bd=('BarcodeDetector' in window)?new BarcodeDetector({formats:['qr_code']}):null;
+  const inside=(i,r)=>{ const cx=r[0]+r[2]/2, cy=r[1]+r[3]/2;
+    return S.reds.some(o=>o.page===i&&o.rect&&cx>=o.rect[0]&&cx<=o.rect[0]+o.rect[2]&&cy>=o.rect[1]&&cy<=o.rect[1]+o.rect[3]); };
+  for(let i=0;i<S.pages.length;i++){
+    const p=S.pages[i];
+    for(const r of p.imgs||[]) if(!inside(i,r)){ S.reds.push({id:S.id++,type:'Image',value:'[Embedded image]',page:i,rect:r,status:'Pending'}); n++; }
+    if(bd) try{ for(const c of await bd.detect(p.canvas)){
+      const b=c.boundingBox, r=[b.x-4,b.y-4,b.width+8,b.height+8];
+      if(!inside(i,r)){ S.reds.push({id:S.id++,type:'QR',value:'[QR code]',page:i,rect:r,status:'Pending'}); n++; } } }catch{}
+  }
+  if(!bd) say('QR detection is not supported in this browser (try Chrome or Edge). Embedded PDF images were still checked.');
+  return n;
+}
+$('#bFind').onclick=findText; $('#q').onkeydown=e=>{ if(e.key==='Enter') findText(); };
+function findText(){
+  if(!ready()||!textGuard()) return;
+  const q=$('#q').value.trim(); if(!q) return;
+  snap(); const n=find(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'+($('#cs').checked?'':'i')),'Search');
+  boxes(); table(); say(n+' match(es) for “'+q+'”.');
+}
+
+/* ---------- Toolbar actions ---------- */
+$('#bApply').onclick=()=>{
+  if(!ready()) return; const p=S.reds.filter(r=>r.status==='Pending');
+  if(!p.length){ say('Nothing pending.'); return; }
+  snap(); p.forEach(r=>r.status='Applied'); boxes(); table(); say(p.length+' redaction(s) applied.');
+};
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==='z'&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)){ e.preventDefault(); $('#bUndo').click(); } });
+$('#bUndo').onclick=()=>{ if(!S.hist.length){ say('Nothing to undo.'); return; } S.reds=JSON.parse(S.hist.pop()); boxes(); table(); say('Undone.'); };
+$('#bClear').onclick=()=>{ if(!S.reds.length) return; if(!confirm('Remove all redactions?')) return; snap(); S.reds=[]; boxes(); table(); say('Cleared.'); };
+$('#file').onchange=e=>{ if(e.target.files[0]) loadFile(e.target.files[0]); e.target.value=''; };
+$('#zoom').oninput=()=>{ if(S.kind!=='text') draw(); };
+
+/* ---------- Drag & drop ---------- */
+const dz=$('#drop');
+dz.onclick=()=>$('#file').click();
+dz.onkeydown=e=>{ if(e.key==='Enter') $('#file').click(); };
+['dragenter','dragover'].forEach(v=>dz.addEventListener(v,e=>{ e.preventDefault(); dz.classList.add('over'); }));
+['dragleave','drop'].forEach(v=>dz.addEventListener(v,e=>{ e.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop',e=>{ if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+$('#preview').addEventListener('dragover',e=>e.preventDefault());
+$('#preview').addEventListener('drop',e=>{ e.preventDefault(); if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+/* ---------- Detected-items table ---------- */
+function loc(r){ return S.kind==='text' ? 'Line '+(S.pages[0].text.slice(0,r.range[0]).split('\n').length) : 'Page '+(r.page+1); }
+/* Masked value for the review table (reference prompt), so values are not exposed while sharing a screen:
+   PAN ABCDE1234F -> ABCDE****F; anything else keeps its first 2 and last 2 characters. "[Drawn box]" etc. stay as they are. */
+function mask(v,type){
+  v=String(v); if(/^\[.*\]$/.test(v)) return v;
+  const c=v.replace(/\s+/g,' ');
+  if(type==='PAN'){ const t=c.replace(/ /g,''); return t.slice(0,5)+'****'+t.slice(9); }
+  if(c.length<=4) return c[0]+'*'.repeat(c.length-1);
+  const keep=c.length<=6?1:2;
+  return c.slice(0,keep)+c.slice(keep,-keep).replace(/[^\s]/g,'*')+c.slice(-keep);
+}
+/* Count per data type next to each checkbox (reference prompt: "0 found" too) */
+function counts(){
+  const by={}; S.reds.forEach(r=>{ const k=(r.type==='Image'||r.type==='QR')?'Image/QR':r.type; by[k]=(by[k]||0)+1; });
+  document.querySelectorAll('.cnt').forEach(el=>{ const n=by[el.dataset.k]||0; el.textContent=S.pages.length?n+' found':''; el.classList.toggle('hit',n>0); });
+}
+function table(){
+  counts();
+  $('#count').textContent=S.reds.length;
+  $('#rows').innerHTML=S.reds.map(r=>`<tr class="item" data-id="${r.id}"><td>${esc(r.type)}</td>
+    <td>${esc(mask(r.value,r.type))}</td><td>${loc(r)}</td>
+    <td><span class="tag ${r.status}">${r.status}</span></td><td><button class="x" data-del="${r.id}" title="Remove">✕</button></td></tr>`).join('')
+    || '<tr><td colspan="5" style="color:#64748b">No items yet. Click Detect Personal Identifier, search, or draw a box.</td></tr>';
+}
+$('#rows').onclick=e=>{
+  const d=e.target.closest('[data-del]');
+  if(d){ snap(); S.reds=S.reds.filter(r=>r.id!==+d.dataset.del); boxes(); table(); return; }
+  const tr=e.target.closest('tr.item'); if(!tr) return;
+  const r=S.reds.find(x=>x.id===+tr.dataset.id);
+  if(r&&S.kind!=='text'){ const pg=$('#pg'+r.page); if(pg) pg.scrollIntoView({behavior:'smooth',block:'start'}); }
+};
+
+/* ---------- Export ---------- */
+const save=(blob,name)=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); };
+const base=()=>'redacted_'+S.name.replace(/\.[^.]+$/,'');
+/* Flatten one page (reference prompt): render the ORIGINAL page again with PDF.js at 200/72 (≈200 dpi, no overlay),
+   then burn only the Applied boxes in as solid black. Images use their own full resolution. */
+const EXPORT_SCALE=200/72;
+async function flat(i){
+  const p=S.pages[i], c=document.createElement('canvas'); let k=1;
+  if(S.doc&&p.pno){
+    const pg=await S.doc.getPage(p.pno), vp=pg.getViewport({scale:EXPORT_SCALE}); k=EXPORT_SCALE/SCALE;
+    c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+    await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+  } else { c.width=p.canvas.width; c.height=p.canvas.height; c.getContext('2d').drawImage(p.canvas,0,0); }
+  const x=c.getContext('2d'); x.fillStyle='#000';
+  S.reds.filter(r=>r.page===i&&r.rect&&r.status==='Applied').forEach(r=>x.fillRect(r.rect[0]*k,r.rect[1]*k,r.rect[2]*k,r.rect[3]*k));
+  return c;
+}
+/* Text export: applied ranges become █ of the same length */
+function redactedText(){
+  const t=S.pages[0].text; let out='',pos=0;
+  for(const r of S.reds.filter(r=>r.status==='Applied'&&r.range).sort((a,b)=>a.range[0]-b.range[0])){
+    if(r.range[0]<pos) continue; out+=t.slice(pos,r.range[0])+t.slice(r.range[0],r.range[1]).replace(/[^\n]/g,'█'); pos=r.range[1];
+  }
+  return out+t.slice(pos);
+}
+$('#bExport').onclick=async()=>{
+  if(!ready()) return;
+  const pend=S.reds.filter(r=>r.status==='Pending').length;
+  if(pend){ if(!confirm(pend+' item(s) are still pending and would NOT be redacted.\nApply them now?')) return;
+            snap(); S.reds.forEach(r=>r.status='Applied'); boxes(); table(); }
+  try{
+    if(S.kind==='text'){ save(new Blob([redactedText()],{type:'text/plain;charset=utf-8'}),base()+'.txt'); say('Exported TXT.'); return; }
+    if($('#fmt').value==='png'){
+      for(let i=0;i<S.pages.length;i++){ const c=await flat(i); await new Promise(ok=>c.toBlob(b=>{ save(b,base()+(S.pages.length>1?'_p'+(i+1):'')+'.png'); ok(); })); }
+      say('Exported PNG.'); return;
+    }
+    await lib('jspdf'); const {jsPDF}=window.jspdf; let pdf;
+    for(let i=0;i<S.pages.length;i++){
+      say('Exporting page '+(i+1)+' of '+S.pages.length+'…');
+      const c=await flat(i), w=c.width, h=c.height, o=w>h?'l':'p';
+      if(!pdf) pdf=new jsPDF({orientation:o,unit:'px',format:[w,h],hotfixes:['px_scaling']}); else pdf.addPage([w,h],o);
+      pdf.addImage(c.toDataURL('image/jpeg',.92),'JPEG',0,0,w,h);
+    }
+    pdf.setProperties({title:'',subject:'',author:'',keywords:'',creator:''});   // no metadata from the original
+    pdf.save(base()+'.pdf'); say('Exported PDF.');
+  }catch(e){ alert('Export failed.\n'+e.message); }
+};
+
+/* ---------- Init: build preset checklist ---------- */
+$('#presets').innerHTML='<div class="pbtns"><button id="pAll">Select all</button><button id="pNone">Clear</button></div>'+
+  GROUPS.map(([g,keys])=>`<div class="ghead">${g}</div>`+keys.map(k=>
+    `<label><input type="checkbox" class="pre" value="${k}" ${OFF_BY_DEFAULT.includes(k)?'':'checked'}> ${k}<span class="cnt" data-k="${k}"></span></label>`).join('')).join('');
+$('#pAll').onclick=()=>document.querySelectorAll('.pre').forEach(c=>c.checked=true);
+$('#pNone').onclick=()=>document.querySelectorAll('.pre').forEach(c=>c.checked=false);
+table();
+</script>
+</body>
+</html>
