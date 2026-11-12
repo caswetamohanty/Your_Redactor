@@ -1,12 +1,12 @@
 # Your Redactor
 
-> **Share the document. Keep the secrets.**
+> Secure, offline redaction of personal data in financial and compliance documents.
 
-Every audit sample, KYC file or bank statement that leaves your desk carries someone's PAN, Aadhaar, account number and home address. Missing just one black box is enough to cause a data leak.
+Audit samples, KYC records and bank statements routinely contain sensitive personal information: PAN, Aadhaar, bank account numbers and residential addresses. A single missed identifier before a document is shared can result in a data privacy breach and regulatory exposure.
 
-**Your Redactor** scans a document, flags every personal identifier it finds and lets you black them out permanently. All of this happens before the file goes anywhere.
+**Your Redactor** automatically identifies personal identifiers within a document, allows each item to be reviewed, and permanently redacts them before the file is shared. All processing takes place locally in the browser; no data is uploaded or stored.
 
-🔗 **Try it:** https://caswetamohanty.github.io/Your-Redactor/Your_Redactor.html
+🔗 **[Launch the live tool](https://caswetamohanty.github.io/Your-Redactor/Your_Redactor.html)**
 
 ---
 
@@ -120,14 +120,15 @@ The tool loads its helper libraries from a CDN the first time. To use it with no
 
 HTML, CSS and JavaScript, plus [PDF.js](https://mozilla.github.io/pdf.js/), [jsPDF](https://github.com/parallax/jsPDF), [Mammoth](https://github.com/mwilliamson/mammoth.js) and [SheetJS](https://sheetjs.com/).
 
-## Author
-
-**Sweta Mohanty, CA**
-Risk Management | Internal Audit | SOX | GRC
-[LinkedIn](https://www.linkedin.com/in/YOUR-LINKEDIN/)
-
 ## License
 
 Released under the [MIT License](LICENSE).
 
 > **Disclaimer:** This tool helps with redaction but does not guarantee that all sensitive data is found. The user is responsible for reviewing the output before sharing it.
+
+## Author
+
+**CA Sweta Mohanty**
+Risk Management Professional | Internal Audit | SOX | GRC
+[LinkedIn](https://www.linkedin.com/in/caswetamohanty). 📧 [csawetamohanty@gmail.com](mailto:csawetamohanty@gmail.com)
+
