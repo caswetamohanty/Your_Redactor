@@ -130,5 +130,6 @@ Released under the [MIT License](LICENSE).
 
 **CA Sweta Mohanty**,
 Risk Management Professional | Internal Audit | SOX | GRC
-[LinkedIn](https://www.linkedin.com/in/caswetamohanty). 📧 (mailto:csawetamohanty@gmail.com)
+>
+[LinkedIn](https://www.linkedin.com/in/caswetamohanty). 📧 (mailto:caswetamohanty@gmail.com)
 
