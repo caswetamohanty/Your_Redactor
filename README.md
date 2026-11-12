@@ -6,7 +6,7 @@ Audit samples, KYC records and bank statements routinely contain sensitive perso
 
 **Your Redactor** automatically identifies personal identifiers within a document, allows each item to be reviewed, and permanently redacts them before the file is shared. All processing takes place locally in the browser; no data is uploaded or stored.
 
-🔗 **[Launch the live tool](https://caswetamohanty.github.io/Your-Redactor/Your_Redactor.html)**
+🔗 **[Launch the live tool](https://caswetamohanty.github.io/Your_Redactor/Your_Redactor.html)**
 
 ---
 
