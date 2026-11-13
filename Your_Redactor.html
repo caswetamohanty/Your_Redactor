@@ -273,7 +273,7 @@ function layoutText(raw){
 /* PDF: render each page to a canvas and keep text positions for detection */
 async function loadPDF(f,pages){
   await lib('pdf'); await lib('worker');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';   // as per the prompt (worker script is also loaded above, so double-click / file:// works)
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';   //
   const doc = await pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer()),isEvalSupported:false,verbosity:pdfjsLib.VerbosityLevel.ERRORS}).promise;   // ERRORS only: hides the harmless "Setting up fake worker" notice
   for(let n=1;n<=doc.numPages;n++){
     say('Rendering page '+n+' of '+doc.numPages+'…');
